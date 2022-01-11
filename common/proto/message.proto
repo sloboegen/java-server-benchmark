@@ -1,0 +1,9 @@
+syntax = "proto3";
+option java_multiple_files = true;
+
+package ru.mse.itmo.proto;
+
+message Message {
+  int32 n = 1;
+  repeated int32 array = 2;
+}
