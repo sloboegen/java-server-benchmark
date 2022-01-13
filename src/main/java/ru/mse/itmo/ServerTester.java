@@ -19,6 +19,7 @@ public class ServerTester {
     private final ExecutorService clientsExecutor = Executors.newCachedThreadPool();
 
     private final Server server;
+    private final List<Client> clients = new ArrayList<>();
     private final int x;
     private final int delta;
     private final int n;
@@ -27,11 +28,8 @@ public class ServerTester {
     public ServerTester(int archType, int x, int delta, int n, int m) throws IOException {
         switch (archType) {
             case 1 -> server = new ServerBlocking();
-            case 2 -> server = new ServerAsync();
-            case 3 -> {
-                server = null;
-                System.out.println("TODO 3");
-            }
+            case 2 -> { server = null; System.out.println("TODO 2"); }
+            case 3 -> server = new ServerAsync();
             default -> throw new RuntimeException("Unsupported server architecture type");
         }
 
@@ -52,7 +50,6 @@ public class ServerTester {
         CountDownLatch clientEndWorkLatch = new CountDownLatch(m);
         CountDownLatch serverMetricsLatch = new CountDownLatch(m);
 
-        List<Client> clients = new ArrayList<>();
         for (int i = 0; i < m; i++) {
             Client client = new Client(clientEndWorkLatch, serverMetricsLatch,
                     Constants.SERVER_ADDRESS,
@@ -87,8 +84,19 @@ public class ServerTester {
         System.out.println("Server time: " + timeServer);
         System.out.println("Task time: " + timeTask);
 
+        shutdown();
+    }
+
+    private void shutdown() {
         try {
             server.shutdown();
+            clients.forEach(c -> {
+                try {
+                    c.shutdown();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            });
             serverExecutor.shutdown();
             clientsExecutor.shutdown();
         } catch (IOException ignored) {

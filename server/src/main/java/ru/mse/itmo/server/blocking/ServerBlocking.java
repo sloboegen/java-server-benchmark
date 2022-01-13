@@ -10,8 +10,6 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -20,7 +18,6 @@ import java.util.concurrent.Executors;
 public class ServerBlocking extends Server {
     private final ServerSocket serverSocket;
     private final ExecutorService readPool = Executors.newCachedThreadPool();
-    private final ExecutorService workerPool = Executors.newFixedThreadPool(5);
 
     public ServerBlocking() throws IOException {
         serverSocket = new ServerSocket(Constants.SERVER_PORT);
@@ -64,7 +61,6 @@ public class ServerBlocking extends Server {
                 while (!socket.isClosed()) {
                     MessageWrapper messageWrapper = MessageUtils.readMessage(inputStream);
                     handleRequest(messageWrapper.message);
-
                 }
             } catch (IOException | ExecutionException | InterruptedException ignored) {
             } finally {
@@ -73,14 +69,8 @@ public class ServerBlocking extends Server {
         }
 
         private void handleRequest(Message request) throws ExecutionException, InterruptedException {
-            final List<Integer> array = request.getArrayList();
-
-            Instant before = Instant.now();
-            List<Integer> sortedArray = workerPool.submit(() -> ArrayUtils.insertionSort(array)).get();
-            Instant after = Instant.now();
-
-            taskTimeMeter.addTimeMeasure(Duration.between(before, after));
-
+            List<Integer> array = request.getArrayList();
+            List<Integer> sortedArray = sortArrayAndRegisterTime(array);
             Message response = Message.newBuilder().setN(sortedArray.size()).addAllArray(sortedArray).build();
             executeWriteTask(() -> MessageUtils.writeMessage(outputStream, response));
         }

@@ -12,14 +12,19 @@ public class MessageUtils {
 
     public static MessageWrapper readMessage(DataInputStream inputStream) throws IOException {
         int msgSize = inputStream.readInt();
-        Message message = Message.parseDelimitedFrom(inputStream);
+        byte[] buffer = new byte[msgSize];
+        int curBytes = 0;
+        while (curBytes < msgSize) {
+            curBytes += inputStream.read(buffer);
+        }
+        Message message = Message.parseFrom(buffer);
         return new MessageWrapper(msgSize, message);
     }
 
     public static void writeMessage(DataOutputStream outputStream, Message message) throws IOException {
         int msgSize = message.getSerializedSize();
         outputStream.writeInt(msgSize);
-        message.writeDelimitedTo(outputStream);
+        outputStream.write(message.toByteArray());
         outputStream.flush();
     }
 }
