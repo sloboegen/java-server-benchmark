@@ -5,6 +5,7 @@ import ru.mse.itmo.common.Constants;
 import ru.mse.itmo.server.Server;
 import ru.mse.itmo.server.async.ServerAsync;
 import ru.mse.itmo.server.blocking.ServerBlocking;
+import ru.mse.itmo.server.nonblocking.ServerNonBlocking;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -28,7 +29,7 @@ public class ServerTester {
     public ServerTester(int archType, int x, int delta, int n, int m) throws IOException {
         switch (archType) {
             case 1 -> server = new ServerBlocking();
-            case 2 -> { server = null; System.out.println("TODO 2"); }
+            case 2 -> server = new ServerNonBlocking();
             case 3 -> server = new ServerAsync();
             default -> throw new RuntimeException("Unsupported server architecture type");
         }

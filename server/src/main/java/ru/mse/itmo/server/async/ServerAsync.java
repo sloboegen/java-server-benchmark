@@ -73,7 +73,7 @@ public class ServerAsync extends Server {
                 if (bytesRead != -1 && context.isReadMode) {
 
                     // reading full message size
-                    if (context.msgSize == Context.MSG_SIZE_NOT_INIT && context.byteBuffer.position() < 4) {
+                    if (context.msgSize == Context.MSG_SIZE_NOT_INIT && context.byteBuffer.position() < Integer.BYTES) {
                         context.socketChannel.read(context.byteBuffer, context, this);
                         return;
                     }
@@ -82,7 +82,7 @@ public class ServerAsync extends Server {
                     context.byteBuffer.flip();
 
                     if (context.msgSize == Context.MSG_SIZE_NOT_INIT) {
-                        curBytesRead = context.byteBuffer.limit() - 4;
+                        curBytesRead = context.byteBuffer.limit() - Integer.BYTES;
                         context.msgSize = context.byteBuffer.getInt();
                         context.requestBuffer = ByteBuffer.allocate(context.msgSize);
                     } else {
@@ -111,7 +111,7 @@ public class ServerAsync extends Server {
                         Message response = Message.newBuilder().setN(sortedArray.size()).addAllArray(sortedArray).build();
                         int responseSize = response.getSerializedSize();
 
-                        context.responseBuffer = ByteBuffer.allocate(responseSize + 4);
+                        context.responseBuffer = ByteBuffer.allocate(responseSize + Integer.BYTES);
                         context.responseBuffer.putInt(responseSize);
                         context.responseBuffer.put(response.toByteArray());
                         context.responseBuffer.flip();

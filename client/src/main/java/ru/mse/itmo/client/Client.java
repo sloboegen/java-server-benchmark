@@ -8,6 +8,7 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
 
@@ -52,14 +53,30 @@ public class Client {
             Instant before = Instant.now();
             sendRequest(array);
             List<Integer> sortedArray = handleResponse();
+//            System.out.println("Client" + socket.getLocalPort() + " got answer");
+//            sortedArray.forEach(System.out::println);
+
             Instant after = Instant.now();
 
             clientTimeMeter.addTimeMeasure(Duration.between(before, after));
 
+            if (!sortedChecker(array, sortedArray)) {
+                System.out.println("error: server response isn't correct");
+                System.out.println("Generated: => ");
+                array.forEach(x -> System.out.println(x + " "));
+                System.out.println();
+
+                System.out.println("Response: => ");
+                array.forEach(x -> System.out.println(x + " "));
+                System.out.println();
+
+                System.exit(1);
+            }
+
             Thread.sleep(requestDelta);
         }
 
-        System.out.println("Client " + socket.getLocalPort() + ": all done");
+//        System.out.println("Client " + socket.getLocalPort() + ": all done");
         clientEndWorkLatch.countDown();
     }
 
@@ -75,11 +92,22 @@ public class Client {
 
     private void sendRequest(List<Integer> array) throws IOException {
         Message request = Message.newBuilder().setN(array.size()).addAllArray(array).build();
+//        System.out.println("Client: start writing request");
         MessageUtils.writeMessage(outputStream, request);
+//        System.out.println("Client: end writing request");
     }
 
     private List<Integer> handleResponse() throws IOException {
         MessageWrapper messageWrapper = MessageUtils.readMessage(inputStream);
-        return messageWrapper.message.getArrayList();
+//        System.out.println("Client: start reading response");
+        List<Integer> result = messageWrapper.message.getArrayList();
+//        System.out.println("Client: end reading response");
+        return result;
+    }
+
+    private boolean sortedChecker(List<Integer> generated, List<Integer> response) {
+        List<Integer> xs = new ArrayList<>(generated);
+        xs.sort(Integer::compare);
+        return xs.equals(response);
     }
 }

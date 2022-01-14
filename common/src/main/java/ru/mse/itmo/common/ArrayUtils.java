@@ -27,8 +27,6 @@ public class ArrayUtils {
             }
             sortedArray.set(j + 1, cur);
         }
-//        System.out.println("FROM Sorting:");
-//        sortedArray.forEach(elem -> System.out.print(elem + " "));
         return sortedArray;
     }
 }

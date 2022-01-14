@@ -13,10 +13,7 @@ public class MessageUtils {
     public static MessageWrapper readMessage(DataInputStream inputStream) throws IOException {
         int msgSize = inputStream.readInt();
         byte[] buffer = new byte[msgSize];
-        int curBytes = 0;
-        while (curBytes < msgSize) {
-            curBytes += inputStream.read(buffer);
-        }
+        inputStream.readFully(buffer, 0, msgSize);
         Message message = Message.parseFrom(buffer);
         return new MessageWrapper(msgSize, message);
     }
