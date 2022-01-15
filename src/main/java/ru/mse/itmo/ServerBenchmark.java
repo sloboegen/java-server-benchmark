@@ -1,5 +1,7 @@
 package ru.mse.itmo;
 
+import ru.mse.itmo.enums.ServerArchitecture;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,11 +12,7 @@ public class ServerBenchmark {
     private int requestDelta;
     private int arraySize;
     private int clientNumber;
-
     private final VariableParameter variableParameter;
-    private final int variableBoundLeft;
-    private final int variableBoundRight;
-    private final int variableStep;
 
     private final List<AtomRunResults> results = new ArrayList<>();
 
@@ -23,10 +21,7 @@ public class ServerBenchmark {
                            int requestDelta,
                            int arraySize,
                            int clientNumber,
-                           VariableParameter variableParameter,
-                           int variableBoundLeft,
-                           int variableBoundRight,
-                           int variableStep) {
+                           VariableParameter variableParameter) {
         this.architecture = architecture;
         this.requestNumber = requestNumber;
         this.requestDelta = requestDelta;
@@ -34,13 +29,10 @@ public class ServerBenchmark {
         this.clientNumber = clientNumber;
 
         this.variableParameter = variableParameter;
-        this.variableBoundLeft = variableBoundLeft;
-        this.variableBoundRight = variableBoundRight;
-        this.variableStep = variableStep;
     }
 
     public void runBenchmark() {
-        switch (variableParameter) {
+        switch (variableParameter.kind) {
             case REQUEST_DELTA -> runVariableRequestDelta();
             case ARRAY_SIZE -> runVariableArraySize();
             case CLIENT_NUMBER -> runVariableClientNumber();
@@ -48,33 +40,37 @@ public class ServerBenchmark {
         }
     }
 
-    public void showResults() {
-        for (AtomRunResults result : results) {
-            System.out.println("Client Time: " + result.timeClient);
-        }
+    public void saveResults() {
+        new Reporter(
+                architecture,
+                variableParameter,
+                results,
+                requestDelta,
+                arraySize,
+                clientNumber).generateReport();
     }
 
     private void runVariableRequestDelta() {
-        requestDelta = variableBoundLeft;
-        while (requestDelta <= variableBoundRight) {
+        requestDelta = variableParameter.leftBound;
+        while (requestDelta <= variableParameter.rightBound) {
             doIteration();
-            requestDelta += variableStep;
+            requestDelta += variableParameter.step;
         }
     }
 
     private void runVariableArraySize() {
-        arraySize = variableBoundLeft;
-        while (arraySize <= variableBoundRight) {
+        arraySize = variableParameter.leftBound;
+        while (arraySize <= variableParameter.rightBound) {
             doIteration();
-            arraySize += variableStep;
+            arraySize += variableParameter.step;
         }
     }
 
     private void runVariableClientNumber() {
-        clientNumber = variableBoundLeft;
-        while (clientNumber <= variableBoundRight) {
+        clientNumber = variableParameter.leftBound;
+        while (clientNumber <= variableParameter.rightBound) {
             doIteration();
-            clientNumber += variableStep;
+            clientNumber += variableParameter.step;
         }
     }
 

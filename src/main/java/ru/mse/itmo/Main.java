@@ -1,6 +1,7 @@
 package ru.mse.itmo;
 
-import java.io.IOException;
+import ru.mse.itmo.enums.ServerArchitecture;
+import ru.mse.itmo.enums.VariableParameterEnum;
 
 public class Main {
     public static void main(String[] args) {
@@ -19,18 +20,18 @@ public class Main {
         final int requestNumber = 10;
 
         System.out.println("Choose the variable parameter");
-        System.out.println("Type `1` to vary request' delta (in ms)");
+        System.out.println("Type `1` to vary request' delta (in millis)");
         System.out.println("Type `2` to vary array size");
         System.out.println("Type `3` to vary client number");
 
         final int variableParameterInt = 3;
-        VariableParameter variableParameter = VariableParameter.ofInt(variableParameterInt);
+        VariableParameterEnum variableParameterEnum = VariableParameterEnum.ofInt(variableParameterInt);
 
         System.out.println("Enter the left bound for this variable");
         final int variableBoundLeft = 1;
 
         System.out.println("Enter the right bound for this variable");
-        final int variableBoundRight = 10;
+        final int variableBoundRight = 3;
 
         System.out.println("Enter the step with which this parameter will change");
         final int variableStep = 1;
@@ -39,17 +40,17 @@ public class Main {
         int arraySize = -1;
         int clientNumber = -1;
 
-        if (variableParameter != VariableParameter.REQUEST_DELTA) {
-            System.out.println("Enter the request' delta (in ms)");
+        if (variableParameterEnum != VariableParameterEnum.REQUEST_DELTA) {
+            System.out.println("Enter the request' delta (in millis)");
             requestDelta = 100;
         }
 
-        if (variableParameter != VariableParameter.ARRAY_SIZE) {
+        if (variableParameterEnum != VariableParameterEnum.ARRAY_SIZE) {
             System.out.println("Enter the array size");
             arraySize = 100;
         }
 
-        if (variableParameter != VariableParameter.CLIENT_NUMBER) {
+        if (variableParameterEnum != VariableParameterEnum.CLIENT_NUMBER) {
             System.out.println("Enter the client number");
             clientNumber = 5;
         }
@@ -64,10 +65,7 @@ public class Main {
                 requestDelta,
                 arraySize,
                 clientNumber,
-                variableParameter,
-                variableBoundLeft,
-                variableBoundRight,
-                variableStep
+                new VariableParameter(variableParameterEnum, variableBoundLeft, variableBoundRight, variableStep)
         );
 
         benchmark.runBenchmark();
@@ -76,6 +74,6 @@ public class Main {
         System.out.println("Benchmark finished");
         System.out.println("================================");
 
-        benchmark.showResults();
+        benchmark.saveResults();
     }
 }

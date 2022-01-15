@@ -1,4 +1,4 @@
-package ru.mse.itmo;
+package ru.mse.itmo.enums;
 
 public enum ServerArchitecture {
     BLOCKING,

@@ -2,6 +2,7 @@ package ru.mse.itmo;
 
 import ru.mse.itmo.client.Client;
 import ru.mse.itmo.common.Constants;
+import ru.mse.itmo.enums.ServerArchitecture;
 import ru.mse.itmo.server.Server;
 import ru.mse.itmo.server.async.ServerAsync;
 import ru.mse.itmo.server.blocking.ServerBlocking;

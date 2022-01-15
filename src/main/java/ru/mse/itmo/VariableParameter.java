@@ -1,24 +1,17 @@
 package ru.mse.itmo;
 
-public enum VariableParameter {
-    REQUEST_DELTA,
-    ARRAY_SIZE,
-    CLIENT_NUMBER;
+import ru.mse.itmo.enums.VariableParameterEnum;
 
-    public static VariableParameter ofInt(int n) {
-        switch (n) {
-            case 1 -> {
-                return REQUEST_DELTA;
-            }
-            case 2 -> {
-                return ARRAY_SIZE;
-            }
-            case 3 -> {
-                return CLIENT_NUMBER;
-            }
-            default -> {
-                return null;
-            }
-        }
+public class VariableParameter {
+    public final VariableParameterEnum kind;
+    public final int leftBound;
+    public final int rightBound;
+    public final int step;
+
+    public VariableParameter(VariableParameterEnum kind, int leftBound, int rightBound, int step) {
+        this.kind = kind;
+        this.leftBound = leftBound;
+        this.rightBound = rightBound;
+        this.step = step;
     }
 }

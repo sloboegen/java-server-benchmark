@@ -54,16 +54,12 @@ public class Client {
             Instant before = Instant.now();
             sendRequest(array);
             List<Integer> sortedArray = handleResponse();
-
             Instant after = Instant.now();
             clientTimeMeter.addTimeMeasure(Duration.between(before, after));
 
             assert sortedChecker(array, sortedArray);
-
             Thread.sleep(requestDelta);
         }
-
-//        System.out.println("Client " + socket.getLocalPort() + ": all done");
         stopLatch.countDown();
     }
 
