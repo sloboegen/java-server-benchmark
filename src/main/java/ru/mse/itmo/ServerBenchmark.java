@@ -44,6 +44,7 @@ public class ServerBenchmark {
             case REQUEST_DELTA -> runVariableRequestDelta();
             case ARRAY_SIZE -> runVariableArraySize();
             case CLIENT_NUMBER -> runVariableClientNumber();
+            default -> throw new RuntimeException("Unknown variable parameter");
         }
     }
 

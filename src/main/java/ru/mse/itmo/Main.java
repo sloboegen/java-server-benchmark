@@ -39,11 +39,6 @@ public class Main {
         int arraySize = -1;
         int clientNumber = -1;
 
-        if (variableParameter == null) {
-            System.out.println("OOPS! Error for variableParameter");
-            return;
-        }
-
         if (variableParameter != VariableParameter.REQUEST_DELTA) {
             System.out.println("Enter the request' delta (in ms)");
             requestDelta = 100;
