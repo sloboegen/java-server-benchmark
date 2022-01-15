@@ -21,31 +21,32 @@ public class Client {
     private final int requestDelta;
     private final int arraySize;
 
-    private final CountDownLatch clientEndWorkLatch;
-    private final CountDownLatch serverMetricsLatch;
+    private final CountDownLatch initLatch;
+    private final CountDownLatch stopLatch;
 
     private final TimeMeter clientTimeMeter = new TimeMeter();
 
-    public Client(CountDownLatch clientEndWorkLatch,
-                  CountDownLatch serverMetricsLatch,
+    public Client(CountDownLatch initLatch,
+                  CountDownLatch stopLatch,
                   String address, int port, int requestCount, int requestDelta, int arraySize) {
         this.requestCount = requestCount;
         this.requestDelta = requestDelta;
         this.arraySize = arraySize;
-        this.clientEndWorkLatch = clientEndWorkLatch;
-        this.serverMetricsLatch = serverMetricsLatch;
+        this.initLatch = initLatch;
+        this.stopLatch = stopLatch;
         try {
             this.socket = new Socket(InetAddress.getByName(address), port);
             this.inputStream = new DataInputStream(socket.getInputStream());
             this.outputStream = new DataOutputStream(socket.getOutputStream());
         } catch (IOException e) {
+            stopLatch.countDown();
             e.printStackTrace();
         }
     }
 
     public void run() throws InterruptedException, IOException, ExecutionException {
-        serverMetricsLatch.countDown();
-        serverMetricsLatch.await();
+        initLatch.countDown();
+        initLatch.await();
 
         for (int i = 0; i < requestCount; i++) {
             List<Integer> array = ArrayUtils.generateRandomArray(arraySize);
@@ -53,11 +54,8 @@ public class Client {
             Instant before = Instant.now();
             sendRequest(array);
             List<Integer> sortedArray = handleResponse();
-//            System.out.println("Client" + socket.getLocalPort() + " got answer");
-//            sortedArray.forEach(System.out::println);
 
             Instant after = Instant.now();
-
             clientTimeMeter.addTimeMeasure(Duration.between(before, after));
 
             if (!sortedChecker(array, sortedArray)) {
@@ -77,7 +75,7 @@ public class Client {
         }
 
 //        System.out.println("Client " + socket.getLocalPort() + ": all done");
-        clientEndWorkLatch.countDown();
+        stopLatch.countDown();
     }
 
     public double getAverageRequestTime() {
@@ -92,17 +90,12 @@ public class Client {
 
     private void sendRequest(List<Integer> array) throws IOException {
         Message request = Message.newBuilder().setN(array.size()).addAllArray(array).build();
-//        System.out.println("Client: start writing request");
         MessageUtils.writeMessage(outputStream, request);
-//        System.out.println("Client: end writing request");
     }
 
     private List<Integer> handleResponse() throws IOException {
         MessageWrapper messageWrapper = MessageUtils.readMessage(inputStream);
-//        System.out.println("Client: start reading response");
-        List<Integer> result = messageWrapper.message.getArrayList();
-//        System.out.println("Client: end reading response");
-        return result;
+        return messageWrapper.message.getArrayList();
     }
 
     private boolean sortedChecker(List<Integer> generated, List<Integer> response) {

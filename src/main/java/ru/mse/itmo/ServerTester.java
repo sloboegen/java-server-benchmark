@@ -25,12 +25,13 @@ public class ServerTester {
     private final int delta;
     private final int n;
     private final int m;
+    private final CountDownLatch stopLatch = new CountDownLatch(1);
 
     public ServerTester(int archType, int x, int delta, int n, int m) throws IOException {
         switch (archType) {
-            case 1 -> server = new ServerBlocking();
-            case 2 -> server = new ServerNonBlocking();
-            case 3 -> server = new ServerAsync();
+            case 1 -> server = new ServerBlocking(stopLatch);
+            case 2 -> server = new ServerNonBlocking(stopLatch);
+            case 3 -> server = new ServerAsync(stopLatch);
             default -> throw new RuntimeException("Unsupported server architecture type");
         }
 
@@ -41,6 +42,8 @@ public class ServerTester {
     }
 
     public void doExperiment() throws InterruptedException {
+        CountDownLatch initLatch = new CountDownLatch(m);
+
         serverExecutor.submit(server::launch);
 
         try {
@@ -48,11 +51,8 @@ public class ServerTester {
         } catch (InterruptedException ignored) {
         }
 
-        CountDownLatch clientEndWorkLatch = new CountDownLatch(m);
-        CountDownLatch serverMetricsLatch = new CountDownLatch(m);
-
         for (int i = 0; i < m; i++) {
-            Client client = new Client(clientEndWorkLatch, serverMetricsLatch,
+            Client client = new Client(initLatch, stopLatch,
                     Constants.SERVER_ADDRESS,
                     Constants.SERVER_PORT, x, delta, n);
             clients.add(client);
@@ -70,7 +70,9 @@ public class ServerTester {
             });
         }
 
-        clientEndWorkLatch.await();
+        stopLatch.await();
+
+        shutdown();
 
         double timeClient = clients.stream()
                 .map(Client::getAverageRequestTime)
@@ -84,8 +86,6 @@ public class ServerTester {
         System.out.println("Client time: " + timeClient);
         System.out.println("Server time: " + timeServer);
         System.out.println("Task time: " + timeTask);
-
-        shutdown();
     }
 
     private void shutdown() {

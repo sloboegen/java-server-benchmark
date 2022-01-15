@@ -11,6 +11,7 @@ import java.nio.channels.AsynchronousServerSocketChannel;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 
 public class ServerAsync extends Server {
@@ -41,7 +42,8 @@ public class ServerAsync extends Server {
         }
     }
 
-    public ServerAsync() throws IOException {
+    public ServerAsync(CountDownLatch stopLatch) throws IOException {
+        super(stopLatch);
         serverChannel = AsynchronousServerSocketChannel.open();
         serverChannel.bind(new InetSocketAddress(Constants.SERVER_ADDRESS, Constants.SERVER_PORT));
     }
@@ -55,6 +57,7 @@ public class ServerAsync extends Server {
                 Context context = new Context(socketChannel, clientBuffer);
                 socketChannel.read(clientBuffer, context, new ReadCompletionHandler());
             } catch (InterruptedException | ExecutionException e) {
+                stopLatch.countDown();
                 System.out.println("AsyncServer end");
             }
         }
@@ -123,12 +126,14 @@ public class ServerAsync extends Server {
                     context.socketChannel.read(context.byteBuffer, context, this);
                 }
             } catch (IOException | InterruptedException | ExecutionException e) {
+                stopLatch.countDown();
                 e.printStackTrace();
             }
         }
 
         @Override
         public void failed(Throwable e, Context context) {
+            stopLatch.countDown();
             e.printStackTrace();
         }
     }

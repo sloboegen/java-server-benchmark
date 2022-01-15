@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -19,7 +20,8 @@ public class ServerBlocking extends Server {
     private final ServerSocket serverSocket;
     private final ExecutorService readPool = Executors.newCachedThreadPool();
 
-    public ServerBlocking() throws IOException {
+    public ServerBlocking(CountDownLatch countDownLatch) throws IOException {
+        super(countDownLatch);
         serverSocket = new ServerSocket(Constants.SERVER_PORT);
     }
 
@@ -31,6 +33,7 @@ public class ServerBlocking extends Server {
                 readPool.submit(new ClientWorker(socket));
             }
         } catch (IOException ignored) {
+            stopLatch.countDown();
             System.out.println("Server end");
         }
     }
@@ -63,6 +66,7 @@ public class ServerBlocking extends Server {
                     handleRequest(messageWrapper.message);
                 }
             } catch (IOException | ExecutionException | InterruptedException ignored) {
+                stopLatch.countDown();
             } finally {
                 writePool.shutdown();
             }
@@ -80,6 +84,7 @@ public class ServerBlocking extends Server {
                 try {
                     task.run();
                 } catch (IOException ignored) {
+                    stopLatch.countDown();
                 }
             });
         }

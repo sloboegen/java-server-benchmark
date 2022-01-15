@@ -14,6 +14,7 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -28,7 +29,8 @@ public class ServerNonBlocking extends Server {
     private final ExecutorService readSelectorPool = Executors.newSingleThreadExecutor();
     private final ExecutorService writeSelectorPool = Executors.newSingleThreadExecutor();
 
-    public ServerNonBlocking() throws IOException {
+    public ServerNonBlocking(CountDownLatch stopLatch) throws IOException {
+        super(stopLatch);
         serverChannel = ServerSocketChannel.open();
         serverChannel.bind(new InetSocketAddress(Constants.SERVER_ADDRESS, Constants.SERVER_PORT));
     }
@@ -45,6 +47,7 @@ public class ServerNonBlocking extends Server {
                 readSelector.wakeup();
             }
         } catch (IOException e) {
+            stopLatch.countDown();
             e.printStackTrace();
         }
     }
@@ -110,6 +113,7 @@ public class ServerNonBlocking extends Server {
                 }
             }
         } catch (IOException e) {
+            stopLatch.countDown();
             e.printStackTrace();
         }
     }
@@ -140,6 +144,7 @@ public class ServerNonBlocking extends Server {
                 }
             }
         } catch (IOException e) {
+            stopLatch.countDown();
             e.printStackTrace();
         }
     }
