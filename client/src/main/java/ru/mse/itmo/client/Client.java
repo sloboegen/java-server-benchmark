@@ -58,18 +58,7 @@ public class Client {
             Instant after = Instant.now();
             clientTimeMeter.addTimeMeasure(Duration.between(before, after));
 
-            if (!sortedChecker(array, sortedArray)) {
-                System.out.println("error: server response isn't correct");
-                System.out.println("Generated: => ");
-                array.forEach(x -> System.out.println(x + " "));
-                System.out.println();
-
-                System.out.println("Response: => ");
-                array.forEach(x -> System.out.println(x + " "));
-                System.out.println();
-
-                System.exit(1);
-            }
+            assert sortedChecker(array, sortedArray);
 
             Thread.sleep(requestDelta);
         }
