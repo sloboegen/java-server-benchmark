@@ -42,7 +42,6 @@ public abstract class SelectorBase implements Runnable {
         }
     }
 
-
     public final void addToRegistrationQueue(ClientContext context) {
         registrationQueue.add(context);
     }
@@ -63,5 +62,4 @@ public abstract class SelectorBase implements Runnable {
             context.socketChannel.register(selector, selectionKeyType, context);
         }
     }
-
 }

@@ -17,31 +17,6 @@ import java.util.concurrent.ExecutionException;
 public class ServerAsync extends Server {
     private final AsynchronousServerSocketChannel serverChannel;
 
-    private static class Context {
-        static final int MSG_SIZE_NOT_INIT = -1;
-
-        AsynchronousSocketChannel socketChannel;
-        ByteBuffer byteBuffer;
-        ByteBuffer requestBuffer;
-        ByteBuffer responseBuffer;
-
-        boolean isReadMode;
-        int getBytes;
-        int msgSize;
-
-        Context(AsynchronousSocketChannel socketChannel, ByteBuffer byteBuffer) {
-            this.socketChannel = socketChannel;
-            this.byteBuffer = byteBuffer;
-            toInitState();
-        }
-
-        void toInitState() {
-            this.isReadMode = true;
-            this.getBytes = 0;
-            this.msgSize = MSG_SIZE_NOT_INIT;
-        }
-    }
-
     public ServerAsync(CountDownLatch stopLatch) throws IOException {
         super(stopLatch);
         serverChannel = AsynchronousServerSocketChannel.open();
@@ -53,9 +28,8 @@ public class ServerAsync extends Server {
         while (serverChannel.isOpen()) {
             try {
                 AsynchronousSocketChannel socketChannel = serverChannel.accept().get();
-                ByteBuffer clientBuffer = ByteBuffer.allocate(1024);
-                Context context = new Context(socketChannel, clientBuffer);
-                socketChannel.read(clientBuffer, context, new ReadCompletionHandler());
+                ClientContextAsync context = new ClientContextAsync(socketChannel);
+                socketChannel.read(context.byteBuffer, context, new ReadCompletionHandler());
             } catch (InterruptedException | ExecutionException e) {
                 stopLatch.countDown();
                 System.out.println("AsyncServer end");
@@ -69,60 +43,38 @@ public class ServerAsync extends Server {
         workerPool.shutdown();
     }
 
-    private class ReadCompletionHandler implements CompletionHandler<Integer, Context> {
+    private class ReadCompletionHandler implements CompletionHandler<Integer, ClientContextAsync> {
         @Override
-        public void completed(Integer bytesRead, Context context) {
+        public void completed(Integer bytesRead, ClientContextAsync context) {
             try {
-                if (bytesRead != -1 && context.isReadMode) {
-
-                    // reading full message size
-                    if (context.msgSize == Context.MSG_SIZE_NOT_INIT && context.byteBuffer.position() < Integer.BYTES) {
+                if (bytesRead != -1) {
+                    context.bytesRead += bytesRead;
+                    if (context.isMsgSizeReading()) {
                         context.socketChannel.read(context.byteBuffer, context, this);
                         return;
                     }
 
-                    int curBytesRead;
                     context.byteBuffer.flip();
-
-                    if (context.msgSize == Context.MSG_SIZE_NOT_INIT) {
-                        curBytesRead = context.byteBuffer.limit() - Integer.BYTES;
+                    if (!context.isMsgSizeInitialize()) {
                         context.msgSize = context.byteBuffer.getInt();
                         context.requestBuffer = ByteBuffer.allocate(context.msgSize);
+                        context.putIntoRequestBuffer(context.bytesRead - Integer.BYTES);
                     } else {
-                        curBytesRead = bytesRead;
+                        context.putIntoRequestBuffer(bytesRead);
                     }
-
-                    context.getBytes += curBytesRead;
-
-                    if (curBytesRead != 0) {
-                        byte[] bytes = new byte[curBytesRead];
-                        context.byteBuffer.get(bytes, 0, curBytesRead);
-                        context.requestBuffer.put(bytes);
-                    }
-
                     context.byteBuffer.clear();
 
-                    if (context.getBytes == context.msgSize) {
-                        context.isReadMode = false;
-                        context.requestBuffer.flip();
-                        Message request = Message.parseFrom(context.requestBuffer);
-                        context.requestBuffer.clear();
-
+                    if (context.isFullMsgRead()) {
+                        Message request = context.buildRequestFromBuffer();
                         List<Integer> array = request.getArrayList();
                         List<Integer> sortedArray = sortArrayAndRegisterTime(array);
 
                         Message response = Message.newBuilder().setN(sortedArray.size()).addAllArray(sortedArray).build();
-                        int responseSize = response.getSerializedSize();
-
-                        context.responseBuffer = ByteBuffer.allocate(responseSize + Integer.BYTES);
-                        context.responseBuffer.putInt(responseSize);
-                        context.responseBuffer.put(response.toByteArray());
+                        context.putResponseIntoBuffer(response);
                         context.responseBuffer.flip();
-
                         context.socketChannel.write(context.responseBuffer);
-                        context.toInitState();
+                        context.resetContext();
                     }
-
                     context.socketChannel.read(context.byteBuffer, context, this);
                 }
             } catch (IOException | InterruptedException | ExecutionException e) {
@@ -132,7 +84,7 @@ public class ServerAsync extends Server {
         }
 
         @Override
-        public void failed(Throwable e, Context context) {
+        public void failed(Throwable e, ClientContextAsync context) {
             stopLatch.countDown();
             e.printStackTrace();
         }
