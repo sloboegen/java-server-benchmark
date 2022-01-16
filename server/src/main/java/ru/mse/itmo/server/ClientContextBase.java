@@ -13,7 +13,8 @@ public abstract class ClientContextBase {
 
     public int bytesRead;
     public int bytesWrite;
-    public Integer msgSize;
+    public Integer inMsgSize;
+    public Integer outMsgSize;
 
     public ClientContextBase() {
         byteBuffer = ByteBuffer.allocate(Constants.BUFFER_SIZE);
@@ -23,11 +24,12 @@ public abstract class ClientContextBase {
     public void resetContext() {
         bytesRead = 0;
         bytesWrite = 0;
-        msgSize = null;
+        inMsgSize = null;
+        outMsgSize = null;
     }
 
     public boolean isMsgSizeInitialize() {
-        return msgSize != null;
+        return inMsgSize != null;
     }
 
     public boolean isMsgSizeReading() {
@@ -35,11 +37,11 @@ public abstract class ClientContextBase {
     }
 
     public boolean isFullMsgRead() {
-        return isMsgSizeInitialize() && bytesRead == msgSize + Integer.BYTES;
+        return isMsgSizeInitialize() && bytesRead == inMsgSize + Integer.BYTES;
     }
 
     public void allocateRequestBuffer() {
-        requestBuffer = ByteBuffer.allocate(msgSize);
+        requestBuffer = ByteBuffer.allocate(inMsgSize);
     }
 
     public void putIntoRequestBuffer(int bytesRead) {

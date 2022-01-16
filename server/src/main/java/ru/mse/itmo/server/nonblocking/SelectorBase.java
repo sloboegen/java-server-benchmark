@@ -14,7 +14,7 @@ public abstract class SelectorBase implements Runnable {
     private final int selectionKeyType;
     private final CountDownLatch stopLatch;
 
-    protected final ConcurrentLinkedQueue<ClientContext> registrationQueue = new ConcurrentLinkedQueue<>();
+    protected final ConcurrentLinkedQueue<ClientContextNB> registrationQueue = new ConcurrentLinkedQueue<>();
 
     protected SelectorBase(int selectionKeyType, CountDownLatch stopLatch) throws IOException {
         selector = Selector.open();
@@ -42,7 +42,7 @@ public abstract class SelectorBase implements Runnable {
         }
     }
 
-    public final void addToRegistrationQueue(ClientContext context) {
+    public final void addToRegistrationQueue(ClientContextNB context) {
         registrationQueue.add(context);
     }
 
@@ -58,7 +58,7 @@ public abstract class SelectorBase implements Runnable {
 
     private void registerNew() throws ClosedChannelException {
         while (!registrationQueue.isEmpty()) {
-            ClientContext context = registrationQueue.poll();
+            ClientContextNB context = registrationQueue.poll();
             context.socketChannel.register(selector, selectionKeyType, context);
         }
     }

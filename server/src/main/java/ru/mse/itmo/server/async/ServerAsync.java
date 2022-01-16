@@ -55,7 +55,7 @@ public class ServerAsync extends Server {
 
                     context.byteBuffer.flip();
                     if (!context.isMsgSizeInitialize()) {
-                        context.msgSize = context.byteBuffer.getInt();
+                        context.inMsgSize = context.byteBuffer.getInt();
                         context.allocateRequestBuffer();
                         context.putIntoRequestBuffer(context.bytesRead - Integer.BYTES);
                     } else {
