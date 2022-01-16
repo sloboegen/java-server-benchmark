@@ -17,11 +17,11 @@ public class ClientContext {
 
     public ClientContext(SocketChannel socketChannel) {
         this.socketChannel = socketChannel;
+        byteBuffer = ByteBuffer.allocate(1024);
         toInitState();
     }
 
     public void toInitState() {
-        byteBuffer = ByteBuffer.allocate(1024);
         msgSize = -1;
         bytesRead = 0;
         bytesWrite = 0;

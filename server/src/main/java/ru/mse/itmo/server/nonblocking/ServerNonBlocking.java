@@ -9,22 +9,18 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.*;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ServerNonBlocking extends Server {
     private final ServerSocketChannel serverChannel;
-    private final Selector readSelector = Selector.open();
-    private final Selector writeSelector = Selector.open();
 
-    private final Queue<ClientContext> registrationReadQueue = new ConcurrentLinkedQueue<>();
-    private final Queue<ClientContext> registrationWriteQueue = new ConcurrentLinkedQueue<>();
+    private final SelectorRead selectorRead = new SelectorRead();
+    private final SelectorWrite selectorWrite = new SelectorWrite();
 
     private final ExecutorService readSelectorPool = Executors.newSingleThreadExecutor();
     private final ExecutorService writeSelectorPool = Executors.newSingleThreadExecutor();
@@ -37,18 +33,17 @@ public class ServerNonBlocking extends Server {
 
     @Override
     public void launch() {
-        readSelectorPool.submit(this::readWorker);
-        writeSelectorPool.submit(this::writeWorker);
+        readSelectorPool.submit(selectorRead);
+        writeSelectorPool.submit(selectorWrite);
         try {
             while (serverChannel.isOpen()) {
                 SocketChannel socketChannel = serverChannel.accept();
                 socketChannel.configureBlocking(false);
-                registrationReadQueue.add(new ClientContext(socketChannel));
-                readSelector.wakeup();
+                selectorRead.addToRegistrationQueue(new ClientContext(socketChannel));
+                selectorRead.wakeup();
             }
         } catch (IOException e) {
             stopLatch.countDown();
-//            e.printStackTrace();
         }
     }
 
@@ -56,120 +51,89 @@ public class ServerNonBlocking extends Server {
     public void shutdown() throws IOException {
         serverChannel.close();
         workerPool.shutdown();
+        selectorRead.close();
+        selectorWrite.close();
         readSelectorPool.shutdown();
         writeSelectorPool.shutdown();
     }
 
-    private void readWorker() {
-        try {
-            while (serverChannel.isOpen()) {
-                readSelector.select();
-                Set<SelectionKey> selectionKeys = readSelector.selectedKeys();
-                Iterator<SelectionKey> iterator = selectionKeys.iterator();
-                while (iterator.hasNext()) {
-                    SelectionKey selectionKey = iterator.next();
-                    if (selectionKey.isReadable()) {
-                        ClientContext context = (ClientContext) selectionKey.attachment();
-                        int bytesRead = context.socketChannel.read(context.byteBuffer);
-                        System.out.println("Bytes read: " + bytesRead);
+    private class SelectorRead extends SelectorBase {
+        public SelectorRead() throws IOException {
+            super(SelectionKey.OP_READ, stopLatch);
+        }
 
-                        if (bytesRead > 0) {
-                            context.bytesRead += bytesRead;
-                            System.out.println("Server: context bytesRead before " + context.bytesRead);
+        @Override
+        protected void processSelectionKey(SelectionKey selectionKey) throws IOException {
+            if (selectionKey.isReadable()) {
+                ClientContext context = (ClientContext) selectionKey.attachment();
+                int bytesRead = context.socketChannel.read(context.byteBuffer);
 
-                            if (!context.isMsgSizeInitialize()) {
-                                if (context.bytesRead >= 4) {
-                                    context.byteBuffer.flip();
-                                    context.msgSize = context.byteBuffer.getInt();
-                                    System.out.println("Server: msg size " + context.msgSize);
-                                    context.requestBuffer = ByteBuffer.allocate(context.msgSize);
-                                    if (context.bytesRead > 4) {
-                                        byte[] bytes = new byte[context.bytesRead - 4];
-                                        context.byteBuffer.get(bytes, 0, context.bytesRead - 4);
-                                        context.requestBuffer.put(bytes);
-                                    }
-                                    context.byteBuffer.clear();
-                                }
-                            } else {
-                                context.byteBuffer.flip();
-                                int realBytesNeed = Math.min(bytesRead, (context.msgSize + 4) - context.bytesRead);
-                                byte[] bytes = new byte[realBytesNeed];
-                                context.byteBuffer.get(bytes, 0, realBytesNeed);
-                                context.requestBuffer.put(bytes);
-                                System.out.println("OK");
-//                                context.requestBuffer.compact();
-                                context.byteBuffer.clear();
-                            }
+                if (bytesRead > 0) {
+                    context.bytesRead += bytesRead;
 
-                            System.out.println(context.bytesRead + " :: " + context.msgSize);
-
-                            if (context.bytesRead >= context.msgSize + 4) {
-                                System.out.println("Server: starting reading");
-                                context.requestBuffer.flip();
-                                Message request = Message.parseFrom(context.requestBuffer);
-                                context.requestBuffer.clear();
-                                List<Integer> array = request.getArrayList();
-                                System.out.println("Server: got msg");
-//                                array.forEach(System.out::println);
-                                doSortTask(context, array);
-                                context.toInitState();
-                            }
+                    if (!context.isMsgSizeInitialize()) {
+                        if (context.bytesRead > Integer.BYTES) {
+                            context.byteBuffer.flip();
+                            context.msgSize = context.byteBuffer.getInt();
+                            context.requestBuffer = ByteBuffer.allocate(context.msgSize);
+                            putIntoRequestBuffer(context, context.bytesRead - Integer.BYTES);
+                            context.byteBuffer.clear();
                         }
+                    } else {
+                        context.byteBuffer.flip();
+                        putIntoRequestBuffer(context, bytesRead);
+                        context.byteBuffer.clear();
                     }
-                    iterator.remove();
-                }
 
-                while (!registrationReadQueue.isEmpty()) {
-                    ClientContext context = registrationReadQueue.poll();
-                    context.socketChannel.register(readSelector, SelectionKey.OP_READ, context);
+                    if (context.isMsgSizeInitialize() && context.bytesRead == context.msgSize + Integer.BYTES) {
+                        context.requestBuffer.flip();
+                        Message request = Message.parseFrom(context.requestBuffer);
+                        context.requestBuffer.clear();
+
+                        List<Integer> array = request.getArrayList();
+                        doSortTask(context, array);
+                    }
                 }
             }
-        } catch (IOException e) {
-            stopLatch.countDown();
-            e.printStackTrace();
+        }
+
+        private void putIntoRequestBuffer(ClientContext context, int bytesRead) {
+            byte[] bytes = new byte[bytesRead];
+            context.byteBuffer.get(bytes, 0, bytesRead);
+            context.requestBuffer.put(bytes);
+        }
+
+        private void doSortTask(ClientContext context, List<Integer> array) {
+            workerPool.submit(() -> {
+                List<Integer> sortedArray = ArrayUtils.insertionSort(array);
+                Message response = Message.newBuilder().setN(sortedArray.size()).addAllArray(sortedArray).build();
+
+                context.responseBuffer = ByteBuffer.allocate(response.getSerializedSize() + Integer.BYTES);
+                context.responseBuffer.putInt(response.getSerializedSize());
+                context.responseBuffer.put(response.toByteArray());
+                context.responseBuffer.flip();
+                context.toInitState();
+
+                selectorWrite.addToRegistrationQueue(context);
+                selectorWrite.wakeup();
+            });
         }
     }
 
-    private void writeWorker() {
-        try {
-            while (serverChannel.isOpen()) {
-                writeSelector.select();
-                Set<SelectionKey> selectionKeys = writeSelector.selectedKeys();
-                Iterator<SelectionKey> iterator = selectionKeys.iterator();
+    private class SelectorWrite extends SelectorBase {
+        public SelectorWrite() throws IOException {
+            super(SelectionKey.OP_WRITE, stopLatch);
+        }
 
-                while (iterator.hasNext()) {
-                    SelectionKey selectionKey = iterator.next();
-                    if (selectionKey.isWritable()) {
-                        ClientContext context = (ClientContext) selectionKey.attachment();
-                        context.bytesWrite += context.socketChannel.write(context.responseBuffer);
-                        if (context.bytesWrite >= context.msgSize + Integer.BYTES) {
-                            selectionKey.cancel();
-                        }
-                    }
-                    iterator.remove();
-                }
-
-                while (!registrationWriteQueue.isEmpty()) {
-                    ClientContext context = registrationWriteQueue.poll();
-                    context.socketChannel.register(writeSelector, SelectionKey.OP_WRITE, context);
+        @Override
+        protected void processSelectionKey(SelectionKey selectionKey) throws IOException {
+            if (selectionKey.isWritable()) {
+                ClientContext context = (ClientContext) selectionKey.attachment();
+                context.bytesWrite += context.socketChannel.write(context.responseBuffer);
+                if (context.bytesWrite >= context.msgSize + Integer.BYTES) {
+                    selectionKey.cancel();
                 }
             }
-        } catch (IOException e) {
-            stopLatch.countDown();
-            e.printStackTrace();
         }
-    }
-
-    private void doSortTask(ClientContext context, List<Integer> array) {
-        workerPool.submit(() -> {
-            List<Integer> sortedArray = ArrayUtils.insertionSort(array);
-            Message response = Message.newBuilder().setN(sortedArray.size()).addAllArray(sortedArray).build();
-            context.responseBuffer = ByteBuffer.allocate(response.getSerializedSize() + Integer.BYTES);
-            context.responseBuffer.putInt(response.getSerializedSize());
-            context.responseBuffer.put(response.toByteArray());
-            context.responseBuffer.flip();
-            registrationWriteQueue.add(context);
-            writeSelector.wakeup();
-        });
     }
 }
