@@ -9,6 +9,7 @@ import java.net.InetSocketAddress;
 import java.nio.channels.AsynchronousServerSocketChannel;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -47,6 +48,10 @@ public class ServerAsync extends Server {
         public void completed(Integer bytesRead, ClientContextAsync context) {
             try {
                 if (bytesRead != -1) {
+                    if (context.bytesRead == 0) {
+                        context.setRequestHandleTime(Instant.now());
+                    }
+
                     context.bytesRead += bytesRead;
                     if (context.isInMsgSizeReading()) {
                         context.socketChannel.read(context.byteBuffer, context, this);
@@ -71,20 +76,20 @@ public class ServerAsync extends Server {
                         Message response = Message.newBuilder().setN(sortedArray.size()).addAllArray(sortedArray).build();
                         context.putResponseIntoBuffer(response);
                         context.socketChannel.write(context.responseBuffer);
-                        context.resetContext();
+                        context.setResponseSendTime(Instant.now());
+                        serverTimeMeter.addTimeMeasure(context.getRequestProcessingTime());
+                        context.invalidateRequest();
                     }
                     context.socketChannel.read(context.byteBuffer, context, this);
                 }
             } catch (IOException | InterruptedException | ExecutionException e) {
                 stopLatch.countDown();
-                e.printStackTrace();
             }
         }
 
         @Override
         public void failed(Throwable e, ClientContextAsync context) {
             stopLatch.countDown();
-            e.printStackTrace();
         }
     }
 }

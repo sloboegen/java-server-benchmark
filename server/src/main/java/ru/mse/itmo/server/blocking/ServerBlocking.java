@@ -10,6 +10,8 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -62,8 +64,11 @@ public class ServerBlocking extends Server {
         public void run() {
             try (Socket socket = this.socket) {
                 while (!socket.isClosed()) {
+                    Instant before = Instant.now();
                     MessageWrapper messageWrapper = MessageUtils.readMessage(inputStream);
                     handleRequest(messageWrapper.message);
+                    Instant after = Instant.now();
+                    serverTimeMeter.addTimeMeasure(Duration.between(before, after));
                 }
             } catch (IOException | ExecutionException | InterruptedException ignored) {
                 stopLatch.countDown();
