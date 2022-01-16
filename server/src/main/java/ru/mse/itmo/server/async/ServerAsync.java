@@ -48,13 +48,13 @@ public class ServerAsync extends Server {
             try {
                 if (bytesRead != -1) {
                     context.bytesRead += bytesRead;
-                    if (context.isMsgSizeReading()) {
+                    if (context.isInMsgSizeReading()) {
                         context.socketChannel.read(context.byteBuffer, context, this);
                         return;
                     }
 
                     context.byteBuffer.flip();
-                    if (!context.isMsgSizeInitialize()) {
+                    if (!context.isInMsgSizeInitialize()) {
                         context.inMsgSize = context.byteBuffer.getInt();
                         context.allocateRequestBuffer();
                         context.putIntoRequestBuffer(context.bytesRead - Integer.BYTES);

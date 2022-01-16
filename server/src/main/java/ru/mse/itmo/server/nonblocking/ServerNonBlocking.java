@@ -7,7 +7,6 @@ import ru.mse.itmo.server.Server;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
@@ -50,9 +49,9 @@ public class ServerNonBlocking extends Server {
     @Override
     public void shutdown() throws IOException {
         serverChannel.close();
-        workerPool.shutdown();
         selectorRead.close();
         selectorWrite.close();
+        workerPool.shutdown();
         readSelectorPool.shutdown();
         writeSelectorPool.shutdown();
     }
@@ -67,29 +66,24 @@ public class ServerNonBlocking extends Server {
             if (selectionKey.isReadable()) {
                 ClientContextNB context = (ClientContextNB) selectionKey.attachment();
                 int bytesRead = context.socketChannel.read(context.byteBuffer);
-
                 if (bytesRead > 0) {
                     context.bytesRead += bytesRead;
-
-                    if (!context.isMsgSizeInitialize()) {
-                        if (context.bytesRead > Integer.BYTES) {
+                    if (!context.isInMsgSizeInitialize()) {
+                        if (!context.isInMsgSizeReading()) {
                             context.byteBuffer.flip();
                             context.inMsgSize = context.byteBuffer.getInt();
-                            context.requestBuffer = ByteBuffer.allocate(context.inMsgSize);
-                            putIntoRequestBuffer(context, context.bytesRead - Integer.BYTES);
+                            context.allocateRequestBuffer();
+                            context.putIntoRequestBuffer(context.bytesRead - Integer.BYTES);
                             context.byteBuffer.clear();
                         }
                     } else {
                         context.byteBuffer.flip();
-                        putIntoRequestBuffer(context, bytesRead);
+                        context.putIntoRequestBuffer(bytesRead);
                         context.byteBuffer.clear();
                     }
 
-                    if (context.isMsgSizeInitialize() && context.bytesRead == context.inMsgSize + Integer.BYTES) {
-                        context.requestBuffer.flip();
-                        Message request = Message.parseFrom(context.requestBuffer);
-                        context.requestBuffer.clear();
-
+                    if (context.isFullMsgRead()) {
+                        Message request = context.buildRequestFromBuffer();
                         List<Integer> array = request.getArrayList();
                         doSortTask(context, array);
                     }
@@ -97,21 +91,12 @@ public class ServerNonBlocking extends Server {
             }
         }
 
-        private void putIntoRequestBuffer(ClientContextNB context, int bytesRead) {
-            byte[] bytes = new byte[bytesRead];
-            context.byteBuffer.get(bytes, 0, bytesRead);
-            context.requestBuffer.put(bytes);
-        }
-
         private void doSortTask(ClientContextNB context, List<Integer> array) {
             workerPool.submit(() -> {
                 List<Integer> sortedArray = ArrayUtils.insertionSort(array);
                 Message response = Message.newBuilder().setN(sortedArray.size()).addAllArray(sortedArray).build();
 
-                context.responseBuffer = ByteBuffer.allocate(response.getSerializedSize() + Integer.BYTES);
-                context.responseBuffer.putInt(response.getSerializedSize());
-                context.responseBuffer.put(response.toByteArray());
-                context.responseBuffer.flip();
+                context.putResponseIntoBuffer(response);
                 context.resetContext();
                 context.outMsgSize = response.getSerializedSize();
 
@@ -131,7 +116,7 @@ public class ServerNonBlocking extends Server {
             if (selectionKey.isWritable()) {
                 ClientContextNB context = (ClientContextNB) selectionKey.attachment();
                 context.bytesWrite += context.socketChannel.write(context.responseBuffer);
-                if (context.bytesWrite >= context.outMsgSize + Integer.BYTES) {
+                if (context.isFullMsgWrite()) {
                     selectionKey.cancel();
                 }
             }

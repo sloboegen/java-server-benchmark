@@ -28,16 +28,24 @@ public abstract class ClientContextBase {
         outMsgSize = null;
     }
 
-    public boolean isMsgSizeInitialize() {
+    public boolean isInMsgSizeInitialize() {
         return inMsgSize != null;
     }
 
-    public boolean isMsgSizeReading() {
+    public boolean isOutMsgSizeInitialize() {
+        return outMsgSize != null;
+    }
+
+    public boolean isInMsgSizeReading() {
         return bytesRead <= Integer.BYTES;
     }
 
     public boolean isFullMsgRead() {
-        return isMsgSizeInitialize() && bytesRead == inMsgSize + Integer.BYTES;
+        return isInMsgSizeInitialize() && bytesRead == inMsgSize + Integer.BYTES;
+    }
+
+    public boolean isFullMsgWrite() {
+        return isOutMsgSizeInitialize() && bytesWrite == outMsgSize + Integer.BYTES;
     }
 
     public void allocateRequestBuffer() {
