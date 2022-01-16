@@ -1,5 +1,6 @@
 package ru.mse.itmo.server.nonblocking;
 
+import ru.mse.itmo.common.ArrayUtils;
 import ru.mse.itmo.common.Constants;
 import ru.mse.itmo.proto.Message;
 import ru.mse.itmo.server.Server;
@@ -11,7 +12,6 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -43,7 +43,6 @@ public class ServerNonBlocking extends Server {
             }
         } catch (IOException e) {
             stopLatch.countDown();
-            System.out.println("NonBlocking Server stopped");
         }
     }
 
@@ -67,10 +66,12 @@ public class ServerNonBlocking extends Server {
             if (selectionKey.isReadable()) {
                 ClientContextNB context = (ClientContextNB) selectionKey.attachment();
                 int bytesRead = context.socketChannel.read(context.byteBuffer);
+
                 if (bytesRead > 0) {
                     context.bytesRead += bytesRead;
+
                     if (!context.isInMsgSizeInitialize()) {
-                        if (!context.isInMsgSizeReading()) {
+                        if (context.bytesRead > Integer.BYTES) {
                             context.byteBuffer.flip();
                             context.inMsgSize = context.byteBuffer.getInt();
                             context.allocateRequestBuffer();
@@ -83,31 +84,26 @@ public class ServerNonBlocking extends Server {
                         context.byteBuffer.clear();
                     }
 
-                    if (context.isFullMsgRead()) {
+                    if (context.isInMsgSizeInitialize() && context.bytesRead == context.inMsgSize + Integer.BYTES) {
                         Message request = context.buildRequestFromBuffer();
                         List<Integer> array = request.getArrayList();
-                        processReqest(context, array);
+                        sendTaskForExecution(context, array);
                     }
                 }
             }
         }
 
-        private void processReqest(ClientContextNB context, List<Integer> array) {
+        private void sendTaskForExecution(ClientContextNB context, List<Integer> array) {
             workerPool.submit(() -> {
-                try {
-                    List<Integer> sortedArray = sortArrayAndRegisterTime(array);
-                    Message response = Message.newBuilder().setN(sortedArray.size()).addAllArray(sortedArray).build();
+                List<Integer> sortedArray = ArrayUtils.insertionSort(array);
+                Message response = Message.newBuilder().setN(sortedArray.size()).addAllArray(sortedArray).build();
 
-                    context.putResponseIntoBuffer(response);
-                    context.resetContext();
-                    context.outMsgSize = response.getSerializedSize();
+                context.putResponseIntoBuffer(response);
+                context.invalidateRequest();
+                context.outMsgSize = response.getSerializedSize();
 
-                    selectorWrite.addToRegistrationQueue(context);
-                    selectorWrite.wakeup();
-                } catch (InterruptedException | ExecutionException e) {
-                    stopLatch.countDown();
-                    e.printStackTrace();
-                }
+                selectorWrite.addToRegistrationQueue(context);
+                selectorWrite.wakeup();
             });
         }
     }
