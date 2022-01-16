@@ -88,8 +88,7 @@ public class AtomRunner {
             clients.forEach(c -> {
                 try {
                     c.shutdown();
-                } catch (IOException e) {
-                    e.printStackTrace();
+                } catch (IOException ignored) {
                 }
             });
             serverExecutor.shutdown();

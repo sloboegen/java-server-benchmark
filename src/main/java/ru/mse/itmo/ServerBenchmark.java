@@ -45,9 +45,19 @@ public class ServerBenchmark {
                 architecture,
                 variableParameter,
                 results,
+                requestNumber,
                 requestDelta,
                 arraySize,
                 clientNumber).generateReport();
+    }
+
+    public void showResults() {
+        for (AtomRunResults result : results) {
+            System.out.println("Client time : " + result.timeClient);
+            System.out.println("Task time : " + result.timeTask);
+            System.out.println("Server time : " + result.timeServer);
+            System.out.println("----------------------------");
+        }
     }
 
     private void runVariableRequestDelta() {

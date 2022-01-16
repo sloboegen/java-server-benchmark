@@ -19,6 +19,7 @@ public class Reporter {
     private String gnuplotFile;
     private String plotPng;
 
+    private final int requestCount;
     private final int requestDelta;
     private final int arraySize;
     private final int clientNumber;
@@ -26,6 +27,7 @@ public class Reporter {
     public Reporter(ServerArchitecture architecture,
                     VariableParameter variableParameter,
                     List<AtomRunResults> results,
+                    int requestCount,
                     int requestDelta,
                     int arraySize,
                     int clientNumber) {
@@ -33,6 +35,7 @@ public class Reporter {
         this.variableParameter = variableParameter;
         this.results = results;
 
+        this.requestCount = requestCount;
         this.requestDelta = requestDelta;
         this.arraySize = arraySize;
         this.clientNumber = clientNumber;
@@ -96,11 +99,11 @@ public class Reporter {
 
     private String generateGnuplotConfig() {
         StringBuilder content = new StringBuilder();
-        String title = "archType: " + architecture.toString() + "; ";
+        String title = String.format("archType: %s; requestCount = %d; ", architecture.toString(), requestCount);
         switch (variableParameter.kind) {
-            case REQUEST_DELTA -> title += "arraySize = " + arraySize + "; clientNumber = " + clientNumber;
-            case ARRAY_SIZE -> title += "requestDelta = " + requestDelta + "; clientNumber = " + clientNumber;
-            case CLIENT_NUMBER -> title += "requestDelta = " + requestDelta + "; arraySize = " + arraySize;
+            case REQUEST_DELTA -> title += String.format("arraySize = %d; clientNumber = %d", arraySize, clientNumber);
+            case ARRAY_SIZE -> title += String.format("requestDelta = %d; clientNumber = %d", requestDelta, clientNumber);
+            case CLIENT_NUMBER -> title += String.format("requestDelta = %d; arraySize = %d", requestDelta, arraySize);
         }
 
         content.append("set term png\n");
