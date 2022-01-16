@@ -1,6 +1,5 @@
 package ru.mse.itmo.server.nonblocking;
 
-import ru.mse.itmo.common.ArrayUtils;
 import ru.mse.itmo.common.Constants;
 import ru.mse.itmo.proto.Message;
 import ru.mse.itmo.server.Server;
@@ -10,8 +9,10 @@ import java.net.InetSocketAddress;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -68,8 +69,11 @@ public class ServerNonBlocking extends Server {
                 int bytesRead = context.socketChannel.read(context.byteBuffer);
 
                 if (bytesRead > 0) {
-                    context.bytesRead += bytesRead;
+                    if (context.bytesRead == 0) {
+                        context.setRequestHandleTime(Instant.now());
+                    }
 
+                    context.bytesRead += bytesRead;
                     if (!context.isInMsgSizeInitialize()) {
                         if (context.bytesRead > Integer.BYTES) {
                             context.byteBuffer.flip();
@@ -95,15 +99,19 @@ public class ServerNonBlocking extends Server {
 
         private void sendTaskForExecution(ClientContextNB context, List<Integer> array) {
             workerPool.submit(() -> {
-                List<Integer> sortedArray = ArrayUtils.insertionSort(array);
-                Message response = Message.newBuilder().setN(sortedArray.size()).addAllArray(sortedArray).build();
+                try {
+                    List<Integer> sortedArray = sortArrayAndRegisterTime(array);
+                    Message response = Message.newBuilder().setN(sortedArray.size()).addAllArray(sortedArray).build();
 
-                context.putResponseIntoBuffer(response);
-                context.invalidateRequest();
-                context.outMsgSize = response.getSerializedSize();
+                    context.putResponseIntoBuffer(response);
+                    context.invalidateRequest();
+                    context.outMsgSize = response.getSerializedSize();
 
-                selectorWrite.addToRegistrationQueue(context);
-                selectorWrite.wakeup();
+                    selectorWrite.addToRegistrationQueue(context);
+                    selectorWrite.wakeup();
+                } catch (ExecutionException | InterruptedException e) {
+                    stopLatch.countDown();
+                }
             });
         }
     }
@@ -119,6 +127,8 @@ public class ServerNonBlocking extends Server {
                 ClientContextNB context = (ClientContextNB) selectionKey.attachment();
                 context.bytesWrite += context.socketChannel.write(context.responseBuffer);
                 if (context.isFullMsgWrite()) {
+                    context.setResponseSendTime(Instant.now());
+                    serverTimeMeter.addTimeMeasure(context.getRequestProcessingTime());
                     selectionKey.cancel();
                 }
             }
