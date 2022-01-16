@@ -48,7 +48,7 @@ public class ServerNonBlocking extends Server {
             }
         } catch (IOException e) {
             stopLatch.countDown();
-            e.printStackTrace();
+//            e.printStackTrace();
         }
     }
 
@@ -71,31 +71,43 @@ public class ServerNonBlocking extends Server {
                     if (selectionKey.isReadable()) {
                         ClientContext context = (ClientContext) selectionKey.attachment();
                         int bytesRead = context.socketChannel.read(context.byteBuffer);
+                        System.out.println("Bytes read: " + bytesRead);
 
-                        // TODO: а точно ли нужна эта проверка?
                         if (bytesRead > 0) {
-                            int curBytesRead = bytesRead;
                             context.bytesRead += bytesRead;
-
-                            context.byteBuffer.flip();
+                            System.out.println("Server: context bytesRead before " + context.bytesRead);
 
                             if (!context.isMsgSizeInitialize()) {
-                                if (context.byteBuffer.limit() >= Integer.BYTES) {
+                                if (context.bytesRead >= 4) {
+                                    context.byteBuffer.flip();
                                     context.msgSize = context.byteBuffer.getInt();
+                                    System.out.println("Server: msg size " + context.msgSize);
                                     context.requestBuffer = ByteBuffer.allocate(context.msgSize);
-                                    curBytesRead -= Integer.BYTES;
+                                    if (context.bytesRead > 4) {
+                                        byte[] bytes = new byte[context.bytesRead - 4];
+                                        context.byteBuffer.get(bytes, 0, context.bytesRead - 4);
+                                        context.requestBuffer.put(bytes);
+                                    }
+                                    context.byteBuffer.clear();
                                 }
+                            } else {
+                                context.byteBuffer.flip();
+                                int realBytesNeed = Math.min(bytesRead, (context.msgSize + 4) - context.bytesRead);
+                                byte[] bytes = new byte[realBytesNeed];
+                                context.byteBuffer.get(bytes, 0, realBytesNeed);
+                                context.requestBuffer.put(bytes);
+                                System.out.println("OK");
+//                                context.requestBuffer.compact();
+                                context.byteBuffer.clear();
                             }
 
-                            byte[] bytes = new byte[curBytesRead];
-                            context.byteBuffer.get(bytes, 0, curBytesRead);
-                            context.requestBuffer.put(bytes);
+                            System.out.println(context.bytesRead + " :: " + context.msgSize);
 
-                            context.byteBuffer.clear();
-
-                            if (context.bytesRead == context.msgSize + Integer.BYTES) {
+                            if (context.bytesRead >= context.msgSize + 4) {
+                                System.out.println("Server: starting reading");
                                 context.requestBuffer.flip();
                                 Message request = Message.parseFrom(context.requestBuffer);
+                                context.requestBuffer.clear();
                                 List<Integer> array = request.getArrayList();
                                 System.out.println("Server: got msg");
 //                                array.forEach(System.out::println);
@@ -130,8 +142,7 @@ public class ServerNonBlocking extends Server {
                     if (selectionKey.isWritable()) {
                         ClientContext context = (ClientContext) selectionKey.attachment();
                         context.bytesWrite += context.socketChannel.write(context.responseBuffer);
-                        if (context.bytesWrite == context.msgSize + Integer.BYTES) {
-//                            System.out.println("Server: msg send");
+                        if (context.bytesWrite >= context.msgSize + Integer.BYTES) {
                             selectionKey.cancel();
                         }
                     }
