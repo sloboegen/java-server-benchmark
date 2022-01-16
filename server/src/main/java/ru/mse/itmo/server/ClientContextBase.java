@@ -38,6 +38,10 @@ public abstract class ClientContextBase {
         return isMsgSizeInitialize() && bytesRead == msgSize + Integer.BYTES;
     }
 
+    public void allocateRequestBuffer() {
+        requestBuffer = ByteBuffer.allocate(msgSize);
+    }
+
     public void putIntoRequestBuffer(int bytesRead) {
         byte[] bytes = new byte[bytesRead];
         byteBuffer.get(bytes, 0, bytesRead);
@@ -49,6 +53,7 @@ public abstract class ClientContextBase {
         responseBuffer = ByteBuffer.allocate(responseSize + Integer.BYTES);
         responseBuffer.putInt(responseSize);
         responseBuffer.put(response.toByteArray());
+        responseBuffer.flip();
     }
 
     public Message buildRequestFromBuffer() throws IOException {

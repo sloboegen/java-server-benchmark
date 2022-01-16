@@ -6,7 +6,6 @@ import ru.mse.itmo.server.Server;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousServerSocketChannel;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
@@ -57,7 +56,7 @@ public class ServerAsync extends Server {
                     context.byteBuffer.flip();
                     if (!context.isMsgSizeInitialize()) {
                         context.msgSize = context.byteBuffer.getInt();
-                        context.requestBuffer = ByteBuffer.allocate(context.msgSize);
+                        context.allocateRequestBuffer();
                         context.putIntoRequestBuffer(context.bytesRead - Integer.BYTES);
                     } else {
                         context.putIntoRequestBuffer(bytesRead);
@@ -71,7 +70,6 @@ public class ServerAsync extends Server {
 
                         Message response = Message.newBuilder().setN(sortedArray.size()).addAllArray(sortedArray).build();
                         context.putResponseIntoBuffer(response);
-                        context.responseBuffer.flip();
                         context.socketChannel.write(context.responseBuffer);
                         context.resetContext();
                     }
