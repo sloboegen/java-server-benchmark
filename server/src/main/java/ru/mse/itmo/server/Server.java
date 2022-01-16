@@ -36,13 +36,11 @@ public abstract class Server {
         return serverTimeMeter.getAverageTime();
     }
 
-    protected List<Integer> sortArrayAndRegisterTime(List<Integer> array) throws ExecutionException, InterruptedException {
-        return workerPool.submit(() -> {
-            Instant before = Instant.now();
-            List<Integer> sortedArray = ArrayUtils.insertionSort(array);
-            Instant after = Instant.now();
-            taskTimeMeter.addTimeMeasure(Duration.between(before, after));
-            return sortedArray;
-        }).get();
+    protected List<Integer> sortArrayAndRegisterTime(List<Integer> array) {
+        Instant before = Instant.now();
+        List<Integer> sortedArray = ArrayUtils.insertionSort(array);
+        Instant after = Instant.now();
+        taskTimeMeter.addTimeMeasure(Duration.between(before, after));
+        return sortedArray;
     }
 }

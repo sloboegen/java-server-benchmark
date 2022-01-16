@@ -1,6 +1,5 @@
 package ru.mse.itmo.server.nonblocking;
 
-import ru.mse.itmo.common.ArrayUtils;
 import ru.mse.itmo.common.Constants;
 import ru.mse.itmo.proto.Message;
 import ru.mse.itmo.server.Server;
@@ -10,7 +9,6 @@ import java.net.InetSocketAddress;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
@@ -101,8 +99,7 @@ public class ServerNonBlocking extends Server {
 
         private void sendTaskForExecution(ClientContextNB context, List<Integer> array) {
             workerPool.submit(() -> {
-                Instant before = Instant.now();
-                List<Integer> sortedArray = ArrayUtils.insertionSort(array);
+                List<Integer> sortedArray = sortArrayAndRegisterTime(array);
                 Message response = Message.newBuilder().setN(sortedArray.size()).addAllArray(sortedArray).build();
 
                 context.putResponseIntoBuffer(response);
@@ -111,8 +108,6 @@ public class ServerNonBlocking extends Server {
 
                 selectorWrite.addToRegistrationQueue(context);
                 selectorWrite.wakeup();
-                Instant after = Instant.now();
-                taskTimeMeter.addTimeMeasure(Duration.between(before, after));
             });
         }
     }

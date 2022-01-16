@@ -71,7 +71,7 @@ public class ServerAsync extends Server {
                     if (context.isFullMsgRead()) {
                         Message request = context.buildRequestFromBuffer();
                         List<Integer> array = request.getArrayList();
-                        List<Integer> sortedArray = sortArrayAndRegisterTime(array);
+                        List<Integer> sortedArray = workerPool.submit(() -> sortArrayAndRegisterTime(array)).get();
 
                         Message response = Message.newBuilder().setN(sortedArray.size()).addAllArray(sortedArray).build();
                         context.putResponseIntoBuffer(response);

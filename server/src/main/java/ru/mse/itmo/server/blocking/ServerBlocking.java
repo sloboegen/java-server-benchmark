@@ -79,7 +79,7 @@ public class ServerBlocking extends Server {
 
         private void handleRequest(Message request) throws ExecutionException, InterruptedException {
             List<Integer> array = request.getArrayList();
-            List<Integer> sortedArray = sortArrayAndRegisterTime(array);
+            List<Integer> sortedArray = workerPool.submit(() -> sortArrayAndRegisterTime(array)).get();
             Message response = Message.newBuilder().setN(sortedArray.size()).addAllArray(sortedArray).build();
             executeWriteTask(() -> MessageUtils.writeMessage(outputStream, response));
         }
