@@ -31,7 +31,7 @@ public class ServerAsync extends Server {
                 socketChannel.read(context.byteBuffer, context, new ReadCompletionHandler());
             } catch (InterruptedException | ExecutionException e) {
                 stopLatch.countDown();
-                System.out.println("AsyncServer end");
+                System.out.println("Asynchronous Server stopped");
             }
         }
     }

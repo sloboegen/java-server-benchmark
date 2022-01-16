@@ -37,10 +37,12 @@ public abstract class Server {
     }
 
     protected List<Integer> sortArrayAndRegisterTime(List<Integer> array) throws ExecutionException, InterruptedException {
-        Instant before = Instant.now();
-        List<Integer> sortedArray = workerPool.submit(() -> ArrayUtils.insertionSort(array)).get();
-        Instant after = Instant.now();
-        taskTimeMeter.addTimeMeasure(Duration.between(before, after));
-        return sortedArray;
+        return workerPool.submit(() -> {
+            Instant before = Instant.now();
+            List<Integer> sortedArray = ArrayUtils.insertionSort(array);
+            Instant after = Instant.now();
+            taskTimeMeter.addTimeMeasure(Duration.between(before, after));
+            return sortedArray;
+        }).get();
     }
 }

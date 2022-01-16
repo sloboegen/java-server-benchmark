@@ -34,7 +34,7 @@ public class ServerBlocking extends Server {
             }
         } catch (IOException ignored) {
             stopLatch.countDown();
-            System.out.println("Server end");
+            System.out.println("Blocking server stopped");
         }
     }
 

@@ -1,6 +1,5 @@
 package ru.mse.itmo.server.nonblocking;
 
-import ru.mse.itmo.common.ArrayUtils;
 import ru.mse.itmo.common.Constants;
 import ru.mse.itmo.proto.Message;
 import ru.mse.itmo.server.Server;
@@ -12,6 +11,7 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -43,6 +43,7 @@ public class ServerNonBlocking extends Server {
             }
         } catch (IOException e) {
             stopLatch.countDown();
+            System.out.println("NonBlocking Server stopped");
         }
     }
 
@@ -85,23 +86,28 @@ public class ServerNonBlocking extends Server {
                     if (context.isFullMsgRead()) {
                         Message request = context.buildRequestFromBuffer();
                         List<Integer> array = request.getArrayList();
-                        doSortTask(context, array);
+                        processReqest(context, array);
                     }
                 }
             }
         }
 
-        private void doSortTask(ClientContextNB context, List<Integer> array) {
+        private void processReqest(ClientContextNB context, List<Integer> array) {
             workerPool.submit(() -> {
-                List<Integer> sortedArray = ArrayUtils.insertionSort(array);
-                Message response = Message.newBuilder().setN(sortedArray.size()).addAllArray(sortedArray).build();
+                try {
+                    List<Integer> sortedArray = sortArrayAndRegisterTime(array);
+                    Message response = Message.newBuilder().setN(sortedArray.size()).addAllArray(sortedArray).build();
 
-                context.putResponseIntoBuffer(response);
-                context.resetContext();
-                context.outMsgSize = response.getSerializedSize();
+                    context.putResponseIntoBuffer(response);
+                    context.resetContext();
+                    context.outMsgSize = response.getSerializedSize();
 
-                selectorWrite.addToRegistrationQueue(context);
-                selectorWrite.wakeup();
+                    selectorWrite.addToRegistrationQueue(context);
+                    selectorWrite.wakeup();
+                } catch (InterruptedException | ExecutionException e) {
+                    stopLatch.countDown();
+                    e.printStackTrace();
+                }
             });
         }
     }
