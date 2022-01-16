@@ -1,5 +1,6 @@
 package ru.mse.itmo.server.nonblocking;
 
+import ru.mse.itmo.common.ArrayUtils;
 import ru.mse.itmo.common.Constants;
 import ru.mse.itmo.proto.Message;
 import ru.mse.itmo.server.Server;
@@ -9,10 +10,10 @@ import java.net.InetSocketAddress;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -44,6 +45,7 @@ public class ServerNonBlocking extends Server {
             }
         } catch (IOException e) {
             stopLatch.countDown();
+            System.out.println("NonBlocking Server stopped");
         }
     }
 
@@ -99,19 +101,18 @@ public class ServerNonBlocking extends Server {
 
         private void sendTaskForExecution(ClientContextNB context, List<Integer> array) {
             workerPool.submit(() -> {
-                try {
-                    List<Integer> sortedArray = sortArrayAndRegisterTime(array);
-                    Message response = Message.newBuilder().setN(sortedArray.size()).addAllArray(sortedArray).build();
+                Instant before = Instant.now();
+                List<Integer> sortedArray = ArrayUtils.insertionSort(array);
+                Message response = Message.newBuilder().setN(sortedArray.size()).addAllArray(sortedArray).build();
 
-                    context.putResponseIntoBuffer(response);
-                    context.invalidateRequest();
-                    context.outMsgSize = response.getSerializedSize();
+                context.putResponseIntoBuffer(response);
+                context.invalidateRequest();
+                context.outMsgSize = response.getSerializedSize();
 
-                    selectorWrite.addToRegistrationQueue(context);
-                    selectorWrite.wakeup();
-                } catch (ExecutionException | InterruptedException e) {
-                    stopLatch.countDown();
-                }
+                selectorWrite.addToRegistrationQueue(context);
+                selectorWrite.wakeup();
+                Instant after = Instant.now();
+                taskTimeMeter.addTimeMeasure(Duration.between(before, after));
             });
         }
     }
