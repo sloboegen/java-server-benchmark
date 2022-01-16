@@ -5,6 +5,8 @@ import ru.mse.itmo.proto.Message;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.time.Duration;
+import java.time.Instant;
 
 public abstract class ClientContextBase {
     public final ByteBuffer byteBuffer;
@@ -16,15 +18,22 @@ public abstract class ClientContextBase {
     public Integer inMsgSize;
     public Integer outMsgSize;
 
+    private Instant requestHandleTime = null;
+    private Instant responseSendTime = null;
+
     public ClientContextBase() {
         byteBuffer = ByteBuffer.allocate(Constants.BUFFER_SIZE);
-        resetContext();
+        invalidateRequest();
+        invalidateResponse();
     }
 
-    public void resetContext() {
+    public void invalidateRequest() {
         bytesRead = 0;
-        bytesWrite = 0;
         inMsgSize = null;
+    }
+
+    public void invalidateResponse() {
+        bytesWrite = 0;
         outMsgSize = null;
     }
 
@@ -45,7 +54,11 @@ public abstract class ClientContextBase {
     }
 
     public boolean isFullMsgWrite() {
-        return isOutMsgSizeInitialize() && bytesWrite == outMsgSize + Integer.BYTES;
+        boolean result = isOutMsgSizeInitialize() && bytesWrite >= outMsgSize + Integer.BYTES;
+        if (result) {
+            invalidateResponse();
+        }
+        return result;
     }
 
     public void allocateRequestBuffer() {
@@ -70,5 +83,19 @@ public abstract class ClientContextBase {
         assert isFullMsgRead();
         requestBuffer.flip();
         return Message.parseFrom(requestBuffer);
+    }
+
+    public void setRequestHandleTime(Instant time) {
+        requestHandleTime = time;
+    }
+
+    public void setResponseSendTime(Instant time) {
+        responseSendTime = time;
+    }
+
+    public Duration getRequestProcessingTime() {
+        assert requestHandleTime != null;
+        assert responseSendTime != null;
+        return Duration.between(requestHandleTime, responseSendTime);
     }
 }
