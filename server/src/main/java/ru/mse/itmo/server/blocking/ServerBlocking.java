@@ -64,8 +64,9 @@ public class ServerBlocking extends Server {
         public void run() {
             try (Socket socket = this.socket) {
                 while (!socket.isClosed()) {
+                    int msgSize = inputStream.readInt();
                     Instant before = Instant.now();
-                    MessageWrapper messageWrapper = MessageUtils.readMessage(inputStream);
+                    MessageWrapper messageWrapper = MessageUtils.readMessage(msgSize, inputStream);
                     handleRequest(messageWrapper.message);
                     Instant after = Instant.now();
                     serverTimeMeter.addTimeMeasure(Duration.between(before, after));

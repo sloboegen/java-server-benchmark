@@ -5,8 +5,19 @@ import ru.mse.itmo.enums.VariableParameterEnum;
 
 import java.util.Scanner;
 
+/*
+* My testing parameters:
+* default request delta = 10
+* default array size = 500
+* default client number = 10
+*
+* request delta from 0 to 1000 with step 100
+* array size from 100 to 10100 with step 500
+* client number from 1 to 51 with step 5
+* */
+
 public class Main {
-    private static final boolean RELEASE = true;
+    private static final boolean RELEASE = false;
 
     public static void main(String[] args) {
         Scanner in = new Scanner(System.in);
@@ -34,7 +45,7 @@ public class Main {
         System.out.println("Type `2` to vary array size");
         System.out.println("Type `3` to vary client number");
 
-        int variableParameterInt = 1;
+        int variableParameterInt = 3;
         if (RELEASE) {
             variableParameterInt = in.nextInt();
         }
@@ -42,19 +53,19 @@ public class Main {
         VariableParameterEnum variableParameterEnum = VariableParameterEnum.ofInt(variableParameterInt);
 
         System.out.println("Enter the left bound for this variable");
-        int variableBoundLeft = 5;
+        int variableBoundLeft = 1;
         if (RELEASE) {
             variableBoundLeft = in.nextInt();
         }
 
         System.out.println("Enter the right bound for this variable");
-        int variableBoundRight = 500;
+        int variableBoundRight = 51;
         if (RELEASE) {
             variableBoundRight = in.nextInt();
         }
 
         System.out.println("Enter the step with which this parameter will change");
-        int variableStep = 50;
+        int variableStep = 5;
         if (RELEASE) {
             variableStep = in.nextInt();
         }
@@ -65,7 +76,7 @@ public class Main {
 
         if (variableParameterEnum != VariableParameterEnum.REQUEST_DELTA) {
             System.out.println("Enter the request' delta (in millis)");
-            requestDelta = 100;
+            requestDelta = 10;
             if (RELEASE) {
                 requestDelta = in.nextInt();
             }
@@ -73,7 +84,7 @@ public class Main {
 
         if (variableParameterEnum != VariableParameterEnum.ARRAY_SIZE) {
             System.out.println("Enter the array size");
-            arraySize = 100;
+            arraySize = 500;
             if (RELEASE) {
                 arraySize = in.nextInt();
             }

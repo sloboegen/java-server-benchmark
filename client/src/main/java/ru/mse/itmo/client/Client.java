@@ -57,7 +57,7 @@ public class Client {
             Instant after = Instant.now();
             clientTimeMeter.addTimeMeasure(Duration.between(before, after));
 
-            assert sortedChecker(array, sortedArray);
+//            assert sortedChecker(array, sortedArray);
             Thread.sleep(requestDelta);
         }
         stopLatch.countDown();
@@ -79,7 +79,8 @@ public class Client {
     }
 
     private List<Integer> handleResponse() throws IOException {
-        MessageWrapper messageWrapper = MessageUtils.readMessage(inputStream);
+        int msgSize = inputStream.readInt();
+        MessageWrapper messageWrapper = MessageUtils.readMessage(msgSize, inputStream);
         return messageWrapper.message.getArrayList();
     }
 
