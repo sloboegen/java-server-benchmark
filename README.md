@@ -23,10 +23,25 @@ After running the `main` function you should choose parameters for benchmark.
 When the experiment is over, you will see the message `Benchmark finished`.
 
 Results will be in the folder `reports/ARCH_TYPE/`.
-If you need plots you should run from the project root `gnuplot reports/ARCH_TYPE/VAR_PARAMETER.p` where `VAR_PARAMETER` is the name of variable parameter (one of 'array_size', 'client_number', 'request_delta').
+If you need plots you should run from the project root:
+
+```bash
+gnuplot reports/ARCH_TYPE/VAR_PARAMETER.p
+```
+where `VAR_PARAMETER` is the name of variable parameter (one of 'array_size', 'client_number', 'request_delta').
+
 Values of the other parameters you can find near with the plot title.
+
+If you want graphics for comparsion different architecturies you should run from `reports` folder:
+
+```bash
+python3 merger.py
+```
+
+You will see new plots in the `reports` folder.
 
 ### Prerequisites
 
 * Java (>= 15), gradle.7.1 for building and running
 * gnuplot for plot generation
+* python3 for more plots
