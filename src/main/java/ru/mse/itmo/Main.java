@@ -7,6 +7,7 @@ import java.util.Scanner;
 
 /*
 * My testing parameters:
+* request number = 40
 * default request delta = 10
 * default array size = 500
 * default client number = 10
@@ -28,14 +29,14 @@ public class Main {
         System.out.println("Type `2` to choose non-blocking architecture");
         System.out.println("Type `3` to choose asynchronous architecture");
 
-        int architectureInt = 3;
+        int architectureInt = 1;
         if (RELEASE) {
             architectureInt = in.nextInt();
         }
         ServerArchitecture architecture = ServerArchitecture.ofInt(architectureInt);
 
         System.out.println("Enter the number of requests for each client");
-        int requestNumber = 20;
+        int requestNumber = 40;
         if (RELEASE) {
             requestNumber = in.nextInt();
         }
@@ -117,6 +118,7 @@ public class Main {
         System.out.println("Benchmark finished");
         System.out.println("================================");
 
+//        benchmark.showResults();
         benchmark.saveResults();
     }
 }

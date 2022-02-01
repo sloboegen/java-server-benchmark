@@ -55,6 +55,8 @@ public class Client {
             sendRequest(array);
             List<Integer> sortedArray = handleResponse();
             Instant after = Instant.now();
+
+            if (stopLatch.getCount() <= 0) break;
             clientTimeMeter.addTimeMeasure(Duration.between(before, after));
 
 //            assert sortedChecker(array, sortedArray);

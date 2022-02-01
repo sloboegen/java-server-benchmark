@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.RejectedExecutionException;
 
 public class ServerAsync extends Server {
     private final AsynchronousServerSocketChannel serverChannel;
@@ -70,25 +71,46 @@ public class ServerAsync extends Server {
 
                     if (context.isFullMsgRead()) {
                         Message request = context.buildRequestFromBuffer();
-                        List<Integer> array = request.getArrayList();
-                        List<Integer> sortedArray = workerPool.submit(() -> sortArrayAndRegisterTime(array)).get();
-
-                        Message response = Message.newBuilder().setN(sortedArray.size()).addAllArray(sortedArray).build();
-                        context.putResponseIntoBuffer(response);
-                        context.socketChannel.write(context.responseBuffer);
-                        context.setResponseSendTime(Instant.now());
-                        serverTimeMeter.addTimeMeasure(context.getRequestProcessingTime());
+                        workerPool.submit(() -> {
+                            List<Integer> array = request.getArrayList();
+                            List<Integer> sortedArray = sortArrayAndRegisterTime(array);
+                            Message response = Message.newBuilder().setN(sortedArray.size()).addAllArray(sortedArray).build();
+                            context.outMsgSize = response.getSerializedSize();
+                            context.putResponseIntoBuffer(response);
+                            context.socketChannel.write(context.responseBuffer, context, new WriteCompletionHandler());
+                        });
                         context.invalidateRequest();
                     }
+                    // TODO: подумать, мб зависания, если вызвали read, но ничего не прочитали
                     context.socketChannel.read(context.byteBuffer, context, this);
                 }
-            } catch (IOException | InterruptedException | ExecutionException e) {
+            } catch (IOException | RejectedExecutionException e) {
                 stopLatch.countDown();
             }
         }
 
         @Override
         public void failed(Throwable e, ClientContextAsync context) {
+            e.printStackTrace();
+            stopLatch.countDown();
+        }
+    }
+
+    private class WriteCompletionHandler implements CompletionHandler<Integer, ClientContextAsync> {
+        @Override
+        public void completed(Integer bytesWrite, ClientContextAsync context) {
+            context.bytesWrite += bytesWrite;
+            if (context.isFullMsgWrite()) {
+                context.setResponseSendTime(Instant.now());
+                serverTimeMeter.addTimeMeasure(context.getRequestProcessingTime());
+            } else {
+                context.socketChannel.write(context.responseBuffer, context, this);
+            }
+        }
+
+        @Override
+        public void failed(Throwable e, ClientContextAsync context) {
+            e.printStackTrace();
             stopLatch.countDown();
         }
     }

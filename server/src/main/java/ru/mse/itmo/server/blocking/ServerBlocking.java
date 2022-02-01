@@ -14,7 +14,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -66,23 +65,23 @@ public class ServerBlocking extends Server {
                 while (!socket.isClosed()) {
                     int msgSize = inputStream.readInt();
                     Instant before = Instant.now();
-                    MessageWrapper messageWrapper = MessageUtils.readMessage(msgSize, inputStream);
-                    handleRequest(messageWrapper.message);
-                    Instant after = Instant.now();
-                    serverTimeMeter.addTimeMeasure(Duration.between(before, after));
+                    Message request = MessageUtils.readMessage(msgSize, inputStream).message;
+                    workerPool.submit(() -> {
+                        List<Integer> array = request.getArrayList();
+                        List<Integer> sortedArray = sortArrayAndRegisterTime(array);
+                        Message response = Message.newBuilder().setN(sortedArray.size()).addAllArray(sortedArray).build();
+                        executeWriteTask(() -> {
+                            MessageUtils.writeMessage(outputStream, response);
+                            Instant after = Instant.now();
+                            serverTimeMeter.addTimeMeasure(Duration.between(before, after));
+                        });
+                    });
                 }
-            } catch (IOException | ExecutionException | InterruptedException ignored) {
+            } catch (IOException ignored) {
                 stopLatch.countDown();
             } finally {
                 writePool.shutdown();
             }
-        }
-
-        private void handleRequest(Message request) throws ExecutionException, InterruptedException {
-            List<Integer> array = request.getArrayList();
-            List<Integer> sortedArray = workerPool.submit(() -> sortArrayAndRegisterTime(array)).get();
-            Message response = Message.newBuilder().setN(sortedArray.size()).addAllArray(sortedArray).build();
-            executeWriteTask(() -> MessageUtils.writeMessage(outputStream, response));
         }
 
         private void executeWriteTask(WriteTaskServer task) {
